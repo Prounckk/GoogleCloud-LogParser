@@ -1,25 +1,21 @@
-CLOUD FUNCTION
+#GOOGLE CLOUD FUNCTIONS
+https://cloud.google.com/functions/
 
-Watching for new files in the bucket
-Taking JSON File, scan line by line to get `TextPlayload`
-Write to a txt file
-Send the file to FTP (in my case i send it to OnCrawl) 
-
-Before start: 
-1)create an export of log files to google cloud bucket
-see here how:
-2)Deploy the code to Cloud Functions and set up variables
+the function take json file with logs from google cloud bucket, scan line by line to get `TextPlayload`
+Write to a txt file and send the file to FTP
 
 
-FTPHOST 
+##You will need: 
+1) create an export of log files to google cloud bucket
+see here how:  https://cloud.google.com/logging/docs/export/configure_export_v2
 
-FTPLOGIN
+2) Deploy the code (without main.go! )to the Cloud Functions and set up variables
 
-FTPPASS
-
-
-
-FTPFOLDER
+##Enthronement variables:
+'FTPHOST'  
+'FTPLOGIN'  
+'FTPPASS'  
+'FTPFOLDER'
 
 
 
