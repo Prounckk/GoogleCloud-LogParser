@@ -1,6 +1,6 @@
 package main
 
-import "app"
+import "github.com/prounckk/GoogleCloudLogParser/app"
 
 func main() {
 	app.Reader()
