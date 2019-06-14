@@ -8,11 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 	ftp "github.com/martinr92/goftp"
-	"google.golang.org/api/option"
-	"io/ioutil"
 	"log"
-
-	"reflect"
+	"os"
 	"strings"
 )
 
@@ -33,24 +30,22 @@ func GCSwatcher(ctx context.Context, e GCSEvent) error {
 		// The metageneration attribute is updated on metadata changes.
 		// The on create value is 1.
 		log.Printf("File %v created.", e.Name)
-		//file := e.Name
-		//bucket := e.Bucket
-		//Reader(file, bucket)
+		file := e.Name
+		bucket := e.Bucket
+		if strings.Contains(file, "json") {
+			Reader(file, bucket)
+		}
 		return nil
 	}
 	log.Printf("File %v metadata updated.", e.Name)
 	return nil
 }
 
-//func Reader(file, bucket string) {
-func Reader() {
-	file := "nginx/2019/06/10/nginx_2019_06_09_01_00_00_01_59_59_S0.json"
-	bucket := "corbeil"
+func Reader(file, bucket string) {
 
 	ctx := context.Background()
 	// Creates a client to connect to the bucket.
-	client, err := storage.NewClient(ctx, option.WithCredentialsFile("/Users/sergei.eremeev/.config/lightspeed/mkt-hq-website/admins-sa2.json"))
-	//client, err := storage.NewClient(ctx)
+	client, err := storage.NewClient(ctx)
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
@@ -64,68 +59,43 @@ func Reader() {
 
 	var j map[string]interface{}
 
-	filename := strings.Replace(file, "json", "txt", 1)
-	wc := client.Bucket(bucket).Object(filename).NewWriter(ctx)
-	_ = wc
-	wc.ContentType = "text/plain"
-	wc.ACL = []storage.ACLRule{{Entity: storage.AllUsers, Role: storage.RoleReader}}
+	ff := strings.Replace(strings.Split(file, "/")[4], "json", "txt", 1)
+	filename := "/tmp/" + ff
 
 	for scanner.Scan() {
 		t := scanner.Text()
 		err = json.NewDecoder(bytes.NewReader([]byte(t))).Decode(&j)
-
 		if textPayload, ok := j["textPayload"]; ok {
+
+			fmt.Println()
+			file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
 			if err != nil {
 				log.Fatalf("failed creating file: %s", err)
 			}
 
-			if _, err := wc.Write([]byte(textPayload.(string))); err != nil {
-				fmt.Println(err)
-			}
+			datawriter := bufio.NewWriter(file)
 
+			datawriter.WriteString(textPayload.(string) + "\n")
+
+			datawriter.Flush()
+			file.Close()
 		}
 	}
 
-	if err := wc.Close(); err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println("updated object:", wc.Attrs())
+	fmt.Println("updated object:", filename)
 
-	SenderToFTP(filename)
+	SenderToFTP(filename, ff)
 }
-func SenderToFTP(filename string) {
-	ctx := context.Background()
-	//client, err := storage.NewClient(ctx)
-	client, err := storage.NewClient(ctx, option.WithCredentialsFile("/Users/sergei.eremeev/.config/lightspeed/mkt-hq-website/admins-sa2.json"))
+func SenderToFTP(filename, ff string) {
 
-	bucket := "corbeil"
-	rcc, err := client.Bucket(bucket).Object(filename).NewReader(ctx)
-	if err != nil {
-		log.Fatalf("Failed to open: %v", err)
-	}
-
-	slurp, err := ioutil.ReadAll(rcc)
-	rcc.Close()
-
-	fmt.Printf("File contents: %s", slurp)
-
-	fmt.Println(reflect.TypeOf(rcc))
-	fmt.Println(rcc)
-	//ftphost := os.Getenv("FTPHOST")
-	//ftplogin := os.Getenv("FTPLOGIN")
-	//ftppass := os.Getenv("FTPPASS")
-	//ftpfolder := os.Getenv("FTPFOLDER")
-
-
-	ftphost := "ftp.oncrawl.com:21"
-	ftplogin := "hqmarketing"
-	ftppass := "hqdeepsthgiL8*"
-	ftpfolder := "/HQ - COM/nginx/"
+	ftphost := os.Getenv("FTPHOST")
+	ftplogin := os.Getenv("FTPLOGIN")
+	ftppass := os.Getenv("FTPPASS")
+	ftpfolder := os.Getenv("FTPFOLDER")
 
 	ftpClient, err := ftp.NewFtp(ftphost)
-	fileserv := "https://storage.googleapis.com/corbeil/nginx/2019/06/10/nginx_2019_06_09_01_00_00_01_59_59_S0.txt"
-	filenamenew := "foo.txt"
+
 	//uncomment if you need it
 	//ftpClient.ActiveMode = true
 	if err != nil {
@@ -137,11 +107,11 @@ func SenderToFTP(filename string) {
 	if err = ftpClient.OpenDirectory(ftpfolder); err != nil {
 		fmt.Printf("failed to open the folder: %s", err)
 	}
-	if err = ftpClient.Upload(fileserv, filenamenew); err != nil {
+	if err = ftpClient.Upload(filename, ff); err != nil {
 		fmt.Printf("failed to upload the file: %s", err)
 	}
 	defer ftpClient.Close()
-	//once all is done, let's delete the file
-	//df := os.Remove(fn)
-	//fmt.Printf("%s File Deleted ", df)
+
+	df := os.Remove(filename)
+	fmt.Printf("%s File Deleted ", df)
 }
