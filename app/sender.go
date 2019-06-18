@@ -59,7 +59,8 @@ func Reader(file, bucket string) {
 
 	var j map[string]interface{}
 
-	ff := strings.Replace(strings.Split(file, "/")[4], "json", "txt", 1)
+
+	ff := strings.Replace(strings.Replace (file,"/", "_", -1), "json", "txt", 1)
 	filename := "/tmp/" + ff
 
 	for scanner.Scan() {
